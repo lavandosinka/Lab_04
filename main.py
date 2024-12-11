@@ -1,3 +1,5 @@
+from gui import gui_main
+
 from shipping_company import ShippingCompany
 from shipping_functions import (
     add_tariff,
@@ -16,7 +18,7 @@ def print_menu():
     print("0. Выход")
     print("=============================================")
 
-def main():
+def old_main():
     company = ShippingCompany()
     
     while True:
@@ -38,4 +40,4 @@ def main():
             print("\nОшибка: Неверный выбор. Пожалуйста, выберите число от 0 до 4.")
 
 if __name__ == "__main__":
-    main()
+    gui_main()
