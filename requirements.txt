@@ -1,1 +1,2 @@
 PyQt6==6.6.1
+mysql-connector-python==8.2.0

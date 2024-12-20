@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
+from database import Database
 
 class TariffException(Exception):
     """Пользовательское исключение для обработки ошибок, связанных с тарифами"""
@@ -42,7 +43,7 @@ class ITariff(ABC):
 
 class BaseTariff(ITariff):
     """Базовый класс тарифа"""
-    def __init__(self, name: str, price: float):
+    def __init__(self, name: str, price: float, discount_percent: float = 0):
         if price <= 0:
             raise TariffException("Цена не может быть отрицательной или нулевой")
         if not name:
@@ -50,8 +51,8 @@ class BaseTariff(ITariff):
     
         self.name = name
         self.price = price
-        self.discount_percent = 0
-        self.price_strategy = RegularPriceStrategy()
+        self.discount_percent = discount_percent
+        self._update_price_strategy()
 
     def _update_price_strategy(self):
         if self.discount_percent > 0:
@@ -82,38 +83,54 @@ class BaseTariff(ITariff):
 class ShippingCompany:
     """Класс компании грузоперевозок"""
     def __init__(self):
-        self.tariffs: List[BaseTariff] = []
+        self.db = Database()
 
     def has_tariff(self, name: str) -> bool:
         """Проверка существования тарифа с таким именем"""
-        return any(tariff.get_name() == name for tariff in self.tariffs)
+        tariffs = self.db.get_all_tariffs()
+        return any(tariff[0] == name for tariff in tariffs)
 
-    def get_tariff(self, name: str) -> BaseTariff:
+    def get_tariff(self, name: str) -> Optional[BaseTariff]:
         """Получить тариф по имени"""
-        for tariff in self.tariffs:
-            if tariff.get_name() == name:
-                return tariff
+        tariffs = self.db.get_all_tariffs()
+        for tariff_data in tariffs:
+            if tariff_data[0] == name:
+                return BaseTariff(tariff_data[0], float(tariff_data[1]), float(tariff_data[2]))
         raise TariffException(f"Тариф с названием '{name}' не найден")
 
     def add_tariff(self, tariff: BaseTariff) -> None:
         """Добавление нового тарифа"""
         if not isinstance(tariff, BaseTariff):
             raise TariffException("Неверный тип тарифа")
+        
         if self.has_tariff(tariff.get_name()):
             raise TariffException(f"Тариф с названием '{tariff.get_name()}' уже существует")
-        self.tariffs.append(tariff)
+        
+        success = self.db.add_tariff(tariff.get_name(), tariff.get_price())
+        if not success:
+            raise TariffException("Ошибка при добавлении тарифа в базу данных")
 
     def set_tariff_discount(self, name: str, discount_percent: float) -> None:
-        """Установить скидку для существующего тарифа"""
-        tariff = self.get_tariff(name)
-        tariff.set_discount(discount_percent)
-
-    def find_min_price_tariff(self) -> BaseTariff:
-        """Поиск тарифа с минимальной стоимостью"""
-        if not self.tariffs:
-            raise TariffException("Список тарифов пуст")
-        return min(self.tariffs, key=lambda x: x.calculate_final_price())
+        """Установка скидки для тарифа"""
+        if not self.has_tariff(name):
+            raise TariffException(f"Тариф с названием '{name}' не найден")
+        
+        if not 0 <= discount_percent <= 100:
+            raise TariffException("Процент скидки должен быть от 0 до 100")
+        
+        success = self.db.set_tariff_discount(name, discount_percent)
+        if not success:
+            raise TariffException("Ошибка при установке скидки в базе данных")
 
     def get_all_tariffs(self) -> List[BaseTariff]:
-        """Получение списка всех тарифов"""
-        return self.tariffs.copy()
+        """Получить список всех тарифов"""
+        tariffs_data = self.db.get_all_tariffs()
+        return [BaseTariff(name, float(price), float(discount)) 
+                for name, price, discount in tariffs_data]
+
+    def find_min_price_tariff(self) -> Optional[BaseTariff]:
+        """Найти тариф с минимальной стоимостью"""
+        min_tariff = self.db.get_min_price_tariff()
+        if min_tariff:
+            return BaseTariff(min_tariff[0], float(min_tariff[1]), float(min_tariff[2]))
+        return None

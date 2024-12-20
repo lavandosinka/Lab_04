@@ -92,7 +92,7 @@ class ShippingCompanyGUI(QMainWindow):
 
         layout.addWidget(right_panel)
 
-        # Обновляем таблицу при запуске
+        # Загружаем тарифы при запуске
         self.update_table()
 
     def add_tariff(self):
@@ -148,14 +148,20 @@ class ShippingCompanyGUI(QMainWindow):
             QMessageBox.warning(self, 'Ошибка', str(e))
 
     def update_table(self):
+        """Обновление таблицы тарифов"""
         tariffs = self.company.get_all_tariffs()
         self.table.setRowCount(len(tariffs))
         
         for row, tariff in enumerate(tariffs):
-            self.table.setItem(row, 0, QTableWidgetItem(tariff.get_name()))
-            self.table.setItem(row, 1, QTableWidgetItem(f"{tariff.get_price():.2f} ₽"))
-            self.table.setItem(row, 2, QTableWidgetItem(f"{tariff.get_discount():.2f}%"))
-            self.table.setItem(row, 3, QTableWidgetItem(f"{tariff.calculate_final_price():.2f} ₽"))
+            name_item = QTableWidgetItem(tariff.get_name())
+            base_price_item = QTableWidgetItem(f"₽ {tariff.get_price():.2f}")
+            discount_item = QTableWidgetItem(f"{tariff.get_discount():.1f}%")
+            final_price_item = QTableWidgetItem(f"₽ {tariff.calculate_final_price():.2f}")
+            
+            self.table.setItem(row, 0, name_item)
+            self.table.setItem(row, 1, base_price_item)
+            self.table.setItem(row, 2, discount_item)
+            self.table.setItem(row, 3, final_price_item)
 
 def gui_main():
     app = QApplication(sys.argv)
